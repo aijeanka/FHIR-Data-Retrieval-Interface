@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        table, th, td {
+            border: 1px solid black;
+        }
+    </style>
+    <script type="text/javascript">
+        function doStuff() {
+            var type = $('#selType')[0].value;
+            var url = $('#url')[0].value + type + $('#selPt')[0].value;
+
+            $('#txtRslt')[0].value = '';
+            $('#spnRsrc')[0].innerHTML = '';
+            $('#resourceTable')[0].innerHTML = '';
+
+            $.ajax({
+                url: url,
+                headers: {
+                    Accept: "application/json+fhir",
+                    "Content-Type": "text/plain; charset=utf-8"
+                }
+            }).then(function (data) {
+                console.log('Hello')
+                try {
+                    var strRslt = JSON.stringify(data, null, '\t');
+                    $('#txtRslt')[0].value = strRslt;
+                    $('#spnRsrc')[0].innerHTML = '';
+
+                    if (data.entry) {
+                        var items = data.entry;
+                        var numItems = items.length;
+                        if (numItems > 20) {
+                            alert('Found ' + numItems + '. Showing only the first 20.');
+                            numItems = 20;
+                        }
+
+                        // creating the tableMeds
+                        var tableMeds = '<table>';
+                        tableMeds += '<tr><th>Drug Name</th><th>Timing</th><th>Route</th><th>Dosage</th></tr>';
+                        var tableData = ''; // storing data
+
+                        for (var i = 0; i < numItems; i++) {
+                            var resource = items[i].resource;
+
+                            if (resource.resourceType === 'MedicationOrder') {
+                                var medication = resource.medicationCodeableConcept?.text || 'n/a';
+
+                                var timing = 'n/a'; // initializing timing with 'n/a'
+                                if (resource.dosageInstruction && resource.dosageInstruction[0].timing) {
+                                    timing = resource.dosageInstruction[0].timing.code.text || 'n/a';
+                                }
+
+                                var route = 'n/a'; // initializing route with 'n/a'
+                                if (resource.dosageInstruction && resource.dosageInstruction[0].route) {
+                                    route = resource.dosageInstruction[0].route?.text || 'n/a';
+                                }
+
+                                var dose = 'n/a'; // initializing dose with 'n/a'
+                                var unit = 'n/a'; // initializing unit with 'n/a'
+                                if (resource.dosageInstruction && resource.dosageInstruction[0].doseQuantity) {
+                                    dose = resource.dosageInstruction[0].doseQuantity.value || 'n/a';
+                                    unit = resource.dosageInstruction[0].doseQuantity.unit || 'n/a';
+                                }
+
+                                var medicationString = medication + ' ' + dose + ' ' + unit;
+
+                                tableData += '<tr><td>' + medicationString + '</td><td>' + timing + '</td><td>' + route + '</td><td>' + dose + ' ' + unit + '</td></tr>';
+                            }
+                        }
+
+                        if (tableData) {
+                            tableMeds += tableData;
+                        } else {
+                            tableMeds += '<tr><td colspan="4">The patient has no medication prescribed.</td></tr>';
+                        }
+
+                        tableMeds += '</table>';
+                        $('#resourceTable')[0].innerHTML = tableMeds;
+                    }
+                } catch (e) {
+                    alert(e);
+                }
+            }).fail(function (jqXHR, textStatus, errorThrown) {
+                $('#resourceTable')[0].innerHTML = '<table><tr><td colspan="4">Error: Failed to retrieve medication data.</td></tr></table>';
+            });
+        }
+    </script>
+</head>
+<body>
+    URL root: <input type="text" id="url" style="width:500px;" value="https://fhir-open.cerner.com/dstu2/ec2458f2-1e24-41c8-b71b-0e701af7583d/" /><br />
+    Patient ID:
+    <select id="selPt">
+        <option value="12507979">Smith, Frank</option>
+        <option value="12742429">Smart, Connie</option>
+        <option value="12743126">Smart, Freddie</option>
+        <option value="12724066">Smart, Nancy</option>
+    </select>
+    <select id="selType">
+        <option value="Patient?_id=">Patient</option>
+        <option value="Encounter?patient=">Encounters</option>
+        <option value="CarePlan?category=assess-plan&patient=">Care Plan</option>
+        <option value="MedicationOrder?patient=">Meds</option>
+        <option value="Observation?patient=">Observations</option>
+        <option value="AllergyIntolerance?patient=">Allergies</option>
+        <option value="Condition?patient=">Conditions</option>
+        <option value="Procedure?patient=">Procedures</option>
+        <option value="Appointment?date=2017&patient=">Appointments</option>
+    </select>
+    <input type="button" value="click" onclick="doStuff();" /><br />
+    <textarea id="txtRslt" rows="20" cols="150"></textarea><br />
+    <span id="spnRsrc"></span>
+    <div id="resourceTable"></div>
+</body>
+</html>
